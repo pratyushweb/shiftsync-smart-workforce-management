@@ -46,7 +46,13 @@ export const io = initSocket(httpServer);
 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL, // e.g. https://shiftsync.vercel.app
+  ].filter(Boolean),
+  credentials: true,
+}));
 app.use(express.json());
 
 // API Routes

@@ -28,11 +28,11 @@ export const generateScheduleFromClaude = async (employees, availabilities, conf
         // Pick a random qualified employee
         const employee = qualifiedEmployees[Math.floor(Math.random() * qualifiedEmployees.length)];
         
-        // Define shift times based on index
+        // Define shift times based on index (Morning, Afternoon, Night)
         let startTime, endTime;
         if (index === 0) { startTime = '08:00'; endTime = '16:00'; }
-        else if (index === 1) { startTime = '16:00'; endTime = '23:00'; }
-        else { startTime = '10:00'; endTime = '18:00'; }
+        else if (index === 1) { startTime = '16:00'; endTime = '00:00'; }
+        else { startTime = '00:00'; endTime = '08:00'; }
 
         suggestedShifts.push({
           employeeId: employee._id || employee.id, // Handle both MongoDB _id and mock id

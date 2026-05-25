@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -15,6 +15,9 @@ export function LoginPage() {
   const isLoading = useAuthStore(state => state.isLoading);
   const error = useAuthStore(state => state.error);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const successMessage = location.state?.message;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,6 +55,16 @@ export function LoginPage() {
 
           <div className="mt-10">
             <form onSubmit={handleSubmit} className="space-y-6">
+              {successMessage && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm"
+                >
+                  {successMessage}
+                </motion.div>
+              )}
+
               {error && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}

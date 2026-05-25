@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { createShift, publishShifts } from '../controllers/shiftController.js';
+import { createShift, publishShifts, getShifts, updateShift, deleteShift } from '../controllers/shiftController.js';
 import { verifyToken, roleCheck } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -8,7 +8,9 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-router.post('/create', 
+router.get('/', getShifts);
+
+router.post('/', 
   roleCheck('manager'),
   [
     body('title').notEmpty().withMessage('Title is required'),
@@ -29,5 +31,8 @@ router.post('/publish',
   validate,
   publishShifts
 );
+
+router.put('/:id', roleCheck('manager'), updateShift);
+router.delete('/:id', roleCheck('manager'), deleteShift);
 
 export default router;

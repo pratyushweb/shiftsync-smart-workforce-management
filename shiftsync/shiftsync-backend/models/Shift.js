@@ -23,6 +23,10 @@ const shiftSchema = new mongoose.Schema({
     type: String, // HH:MM
     required: true
   },
+  role: {
+    type: String,
+    default: ''
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

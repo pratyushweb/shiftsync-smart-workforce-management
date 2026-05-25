@@ -9,6 +9,19 @@ import { Card } from '../../components/ui/Card';
 import { Plus, Users, Calendar as CalendarIcon, Activity, TrendingUp, Clock, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const SHIFTS = [
+  { name: 'Morning', startTime: '08:00', endTime: '16:00' },
+  { name: 'Afternoon', startTime: '16:00', endTime: '00:00' },
+  { name: 'Night', startTime: '00:00', endTime: '08:00' }
+];
+
+const SEEDED_EMPLOYEES = [
+  { _id: '6a1444c62c56829ffc605abf', fullName: 'Aarav Sharma' },
+  { _id: '6a1444c72c56829ffc605ac2', fullName: 'Riya Patel' },
+  { _id: '6a1444c72c56829ffc605ac5', fullName: 'Kabir Singh' },
+  { _id: '6a1444c72c56829ffc605ac8', fullName: 'Ananya Iyer' }
+];
+
 export function ManagerDashboardPage() {
   const { 
     shifts, 
@@ -22,11 +35,21 @@ export function ManagerDashboardPage() {
     generateAISchedule 
   } = useShiftStore();
 
+  // Merge loaded database employees with seeded fallbacks to guarantee 4 active employees
+  const displayEmployees = [...employees];
+  SEEDED_EMPLOYEES.forEach(seeded => {
+    const exists = displayEmployees.some(e => (e._id || e.id || '').toString() === seeded._id);
+    if (!exists) {
+      displayEmployees.push(seeded);
+    }
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState(null);
-  const [shiftData, setShiftData] = useState({ date: '', startTime: '', endTime: '', employeeId: '', role: '' });
+  const [shiftData, setShiftData] = useState({ date: '', shiftType: '', startTime: '', endTime: '', employeeId: '', role: '' });
   
   const today = new Date();
+  const minDateStr = format(today, 'yyyy-MM-dd');
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -47,17 +70,38 @@ export function ManagerDashboardPage() {
     }
   };
   
+  const handleShiftTypeChange = (type) => {
+    const selected = SHIFTS.find(s => s.name === type);
+    if (selected) {
+      setShiftData(prev => ({
+        ...prev,
+        shiftType: type,
+        startTime: selected.startTime,
+        endTime: selected.endTime
+      }));
+    } else {
+      setShiftData(prev => ({
+        ...prev,
+        shiftType: '',
+        startTime: '',
+        endTime: ''
+      }));
+    }
+  };
+
   const openCreateModal = () => {
     setEditingShift(null);
-    setShiftData({ date: '', startTime: '', endTime: '', employeeId: '', role: '' });
+    setShiftData({ date: '', shiftType: '', startTime: '', endTime: '', employeeId: '', role: '' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (shift) => {
     setEditingShift(shift);
     const empId = shift.employeeId?._id || shift.employeeId;
+    const matchingShift = SHIFTS.find(s => s.startTime === shift.startTime && s.endTime === shift.endTime);
     setShiftData({
       date: shift.shiftDate ? shift.shiftDate.split('T')[0] : (shift.date ? shift.date.split('T')[0] : ''),
+      shiftType: matchingShift ? matchingShift.name : '',
       startTime: shift.startTime,
       endTime: shift.endTime,
       employeeId: empId?.toString() || '',
@@ -105,8 +149,6 @@ export function ManagerDashboardPage() {
   const stats = [
     { label: 'Total Shifts', value: shifts.length, icon: CalendarIcon, color: 'text-primary-600', bg: 'bg-primary-50' },
     { label: 'Employees', value: employees.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Attendance', value: '94%', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Efficiency', value: '+12%', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
@@ -120,14 +162,6 @@ export function ManagerDashboardPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <Button 
-            variant="secondary" 
-            className="flex-1 sm:flex-none"
-            onClick={handleAIOptimize}
-            isLoading={isLoading}
-          >
-            AI Optimizer
-          </Button>
           <Button onClick={openCreateModal} className="flex-1 sm:flex-none">
             <Plus className="mr-2 h-4 w-4" />
             Create Shift
@@ -136,7 +170,7 @@ export function ManagerDashboardPage() {
       </div>
 
       {/* Stats Cards Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {stats.map((stat, i) => (
           <Card key={i} hover className="p-6">
             <div className="flex items-center justify-between">
@@ -182,7 +216,7 @@ export function ManagerDashboardPage() {
                 ) : (
                   dayShifts.map(shift => {
                     const empId = shift.employeeId?._id || shift.employeeId;
-                    const emp = employees.find(e => (e._id || e.id) === empId);
+                    const emp = displayEmployees.find(e => (e._id || e.id || '').toString() === (empId || '').toString());
                     return (
                       <motion.div 
                         initial={{ opacity: 0, y: 5 }}
@@ -214,19 +248,33 @@ export function ManagerDashboardPage() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingShift ? 'Edit Shift' : 'Create New Shift'}>
         <form onSubmit={handleSaveShift} className="space-y-6">
           <div className="grid grid-cols-2 gap-5">
-            <Input label="Date" type="date" value={shiftData.date} onChange={e => setShiftData({...shiftData, date: e.target.value})} required />
+            <Input label="Date" type="date" min={minDateStr} value={shiftData.date} onChange={e => setShiftData({...shiftData, date: e.target.value})} required />
             <div className="flex flex-col">
               <label className="mb-1.5 block text-sm font-semibold text-slate-700 uppercase tracking-tighter text-[11px]">Assigned Employee</label>
               <select className="flex h-11 w-full rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm"
                 value={shiftData.employeeId} onChange={e => setShiftData({...shiftData, employeeId: e.target.value})} required>
                 <option value="">Select...</option>
-                {employees.map(e => (
-                  <option key={e._id || e.id} value={e._id || e.id}>{e.fullName || e.name}</option>
+                {displayEmployees.map(e => (
+                  <option key={e._id || e.id} value={e._id || e.id}>
+                    {e.fullName || e.name} (ID: {e._id || e.id})
+                  </option>
                 ))}
               </select>
             </div>
-            <Input label="Start Time" type="time" value={shiftData.startTime} onChange={e => setShiftData({...shiftData, startTime: e.target.value})} required />
-            <Input label="End Time" type="time" value={shiftData.endTime} onChange={e => setShiftData({...shiftData, endTime: e.target.value})} required />
+            <div className="flex flex-col">
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700 uppercase tracking-tighter text-[11px]">Shift Type</label>
+              <select className="flex h-11 w-full rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm"
+                value={shiftData.shiftType} onChange={e => handleShiftTypeChange(e.target.value)} required>
+                <option value="">Select Shift...</option>
+                <option value="Morning">Morning (08:00 - 16:00)</option>
+                <option value="Afternoon">Afternoon (16:00 - 00:00)</option>
+                <option value="Night">Night (00:00 - 08:00)</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Start Time" type="time" value={shiftData.startTime} disabled required />
+              <Input label="End Time" type="time" value={shiftData.endTime} disabled required />
+            </div>
             <div className="col-span-2">
               <Input label="Role Label" type="text" placeholder="e.g. Server, Lead Cook" value={shiftData.role} onChange={e => setShiftData({...shiftData, role: e.target.value})} />
             </div>

@@ -21,6 +21,7 @@ import leaveRoutes from './routes/leaveRoutes.js';
 import noticeRoutes from './routes/noticeRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import employeeRoutes from './routes/employeeRoutes.js';
 import { startCronJobs } from './config/cron.js';
 
 
@@ -76,10 +77,12 @@ app.use('/api/invite', inviteRoutes);
 app.use('/api/shifts', shiftRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/swap', swapRoutes);
+app.use('/api/swaps', swapRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/employees', employeeRoutes);
 
 console.log('[Bootstrap] Routes registered.');
 

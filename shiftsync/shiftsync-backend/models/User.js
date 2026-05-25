@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     enum: ['manager', 'employee'],
     default: 'employee'
   },
+  jobTitle: {
+    type: String,
+    default: 'Employee'
+  },
   avatarUrl: {
     type: String,
     default: ''

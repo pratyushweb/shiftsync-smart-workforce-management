@@ -64,6 +64,17 @@ export const useShiftStore = create((set, get) => ({
     }
   },
 
+  addEmployee: async (employeeData) => {
+    try {
+      const response = await api.post('/employees', employeeData);
+      set((state) => ({ employees: [...state.employees, response.data.data] }));
+      return response.data.data;
+    } catch (err) {
+      console.error('Add employee failed', err);
+      throw err;
+    }
+  },
+
   updateEmployee: async (employeeId, employeeData) => {
     try {
       const response = await api.put(`/employees/${employeeId}`, employeeData);
@@ -76,12 +87,27 @@ export const useShiftStore = create((set, get) => ({
     }
   },
 
+  fetchSwaps: async () => {
+    set({ isLoading: true });
+    try {
+      const response = await api.get('/swaps');
+      set({ swaps: response.data.data, isLoading: false });
+    } catch (err) {
+      console.error('Fetch swaps failed', err);
+      set({ isLoading: false });
+    }
+  },
+
   requestSwap: async (swapData) => {
     set({ isLoading: true });
     try {
       const response = await api.post('/swaps', swapData);
+      const newSwap = {
+        ...response.data.data,
+        shiftId: swapData.shiftId
+      };
       set((state) => ({ 
-        swaps: [response.data.data, ...state.swaps],
+        swaps: [newSwap, ...state.swaps],
         isLoading: false 
       }));
       return response.data.data;

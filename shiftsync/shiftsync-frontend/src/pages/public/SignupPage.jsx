@@ -14,6 +14,7 @@ export function SignupPage() {
     email: '',
     password: ''
   });
+  const [validationErrors, setValidationErrors] = useState({});
   
   const register = useAuthStore(state => state.register);
   const isLoading = useAuthStore(state => state.isLoading);
@@ -22,13 +23,34 @@ export function SignupPage() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (validationErrors[e.target.name]) {
+      setValidationErrors({ ...validationErrors, [e.target.name]: '' });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const errors = {};
+    if (/^\d/.test(formData.businessName)) {
+      errors.businessName = 'Business Name must start with a letter, not a number.';
+    }
+    if (/^\d/.test(formData.fullName)) {
+      errors.fullName = 'Full Name must start with a letter, not a number.';
+    }
+    if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    setValidationErrors({});
     try {
       await register(formData);
-      navigate('/dashboard');
+      navigate('/login', { state: { message: 'Registration successful! Please log in with your credentials.' } });
     } catch (err) {
       // Error handled in store
     }
@@ -79,6 +101,7 @@ export function SignupPage() {
                   value={formData.businessName}
                   onChange={handleChange}
                   placeholder="e.g. Blue Bottle Coffee"
+                  error={validationErrors.businessName}
                 />
 
                 <Input
@@ -89,6 +112,7 @@ export function SignupPage() {
                   value={formData.fullName}
                   onChange={handleChange}
                   placeholder="John Doe"
+                  error={validationErrors.fullName}
                 />
                 
                 <Input
@@ -109,6 +133,7 @@ export function SignupPage() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
+                  error={validationErrors.password}
                 />
               </div>
 

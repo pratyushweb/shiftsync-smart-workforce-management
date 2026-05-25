@@ -27,10 +27,8 @@ export const useAuthStore = create((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post('/auth/register', data);
-      const { user, accessToken } = response.data.data;
-      
-      localStorage.setItem('shiftsync_token', accessToken);
-      set({ user, token: accessToken, isAuthenticated: true, isLoading: false });
+      set({ isLoading: false });
+      return response.data;
     } catch (err) {
       const message = err.response?.data?.message || 'Registration failed';
       set({ error: message, isLoading: false });

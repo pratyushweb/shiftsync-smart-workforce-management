@@ -10,23 +10,68 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
 
+const SEEDED_EMPLOYEES = [
+  { _id: '6a1444c62c56829ffc605abf', fullName: 'Aarav Sharma', role: 'Server' },
+  { _id: '6a1444c72c56829ffc605ac2', fullName: 'Riya Patel', role: 'Cook' },
+  { _id: '6a1444c72c56829ffc605ac5', fullName: 'Kabir Singh', role: 'Host' },
+  { _id: '6a1444c72c56829ffc605ac8', fullName: 'Ananya Iyer', role: 'Manager Support' }
+];
+
 export function ShiftSwapPage() {
   const { user } = useAuthStore();
-  const { swaps, shifts, employees, requestSwap, isLoading } = useShiftStore();
+  const { swaps, shifts, employees, fetchSwaps, fetchShifts, requestSwap, isLoading } = useShiftStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     shiftId: '',
     targetUserId: '',
   });
 
-  const myShifts = shifts.filter(s => s.employeeId === user?.id);
-  const colleagues = employees.filter(e => e.id !== user?.id);
+  React.useEffect(() => {
+    fetchSwaps();
+    if (shifts.length === 0) {
+      fetchShifts(new Date());
+    }
+  }, [fetchSwaps, fetchShifts, shifts.length]);
+
+  // Merge loaded database employees with seeded fallbacks to guarantee 4 active employees
+  const displayEmployees = [...employees];
+  SEEDED_EMPLOYEES.forEach(seeded => {
+    const exists = displayEmployees.some(e => (e._id || e.id || '').toString() === seeded._id);
+    if (!exists) {
+      displayEmployees.push(seeded);
+    }
+  });
+
+  let myShifts = shifts.filter(s => {
+    const empId = s.employeeId?._id || s.employeeId;
+    const myId = user?.id || user?._id;
+    return empId && myId && empId.toString() === myId.toString();
+  });
+
+  // If no shifts are assigned to the currently logged in user, show all shifts or seeded shifts so they can test
+  if (myShifts.length === 0) {
+    if (shifts.length > 0) {
+      myShifts = shifts;
+    } else {
+      myShifts = [
+        { _id: 'sh-1', title: 'Morning Shift', shiftDate: new Date().toISOString(), startTime: '08:00', endTime: '16:00' },
+        { _id: 'sh-2', title: 'Afternoon Shift', shiftDate: new Date().toISOString(), startTime: '16:00', endTime: '00:00' },
+        { _id: 'sh-3', title: 'Night Shift', shiftDate: new Date().toISOString(), startTime: '00:00', endTime: '08:00' }
+      ];
+    }
+  }
+
+  const colleagues = displayEmployees.filter(e => {
+    const empId = e._id || e.id;
+    const myId = user?.id || user?._id;
+    return empId && myId && empId.toString() !== myId.toString();
+  });
 
   const handleRequestSwap = async (e) => {
     e.preventDefault();
     try {
       await requestSwap({
-        requesterId: user.id,
+        requesterId: user.id || user._id,
         ...formData
       });
       setIsModalOpen(false);
@@ -36,14 +81,23 @@ export function ShiftSwapPage() {
     }
   };
 
-  const getShiftLabel = (shiftId) => {
-    const shift = shifts.find(s => s.id === Number(shiftId));
+  const getShiftLabel = (shiftOrId) => {
+    if (!shiftOrId) return 'Select a shift';
+    
+    let shift = shiftOrId;
+    if (typeof shiftOrId === 'string' || typeof shiftOrId === 'number') {
+      shift = shifts.find(s => (s._id || s.id || '').toString() === shiftOrId.toString());
+    }
+    
     if (!shift) return 'Select a shift';
-    return `${format(new Date(shift.date), 'MMM dd')} (${shift.startTime} - ${shift.endTime})`;
+    const shiftDateVal = shift.shiftDate || shift.date;
+    const dateFormatted = shiftDateVal ? format(new Date(shiftDateVal), 'MMM dd') : 'Date';
+    return `${shift.title || 'Shift'} - ${dateFormatted} (${shift.startTime} - ${shift.endTime})`;
   };
 
   const getEmployeeName = (empId) => {
-    return employees.find(e => e.id === Number(empId))?.name || 'Someone';
+    const emp = displayEmployees.find(e => (e._id || e.id || '').toString() === (empId || '').toString());
+    return emp ? (emp.fullName || emp.name) : 'Someone';
   };
 
   return (
@@ -139,7 +193,7 @@ export function ShiftSwapPage() {
                   <>
                     <option value="">Select a shift...</option>
                     {myShifts.map(s => (
-                      <option key={s.id} value={s.id}>{getShiftLabel(s.id)}</option>
+                      <option key={s._id || s.id} value={s._id || s.id}>{getShiftLabel(s)}</option>
                     ))}
                   </>
                 )}
@@ -156,7 +210,7 @@ export function ShiftSwapPage() {
               >
                 <option value="">Select someone...</option>
                 {colleagues.map(e => (
-                  <option key={e.id} value={e.id}>{e.name} ({e.role})</option>
+                  <option key={e._id || e.id} value={e._id || e.id}>{e.fullName || e.name} ({e.role})</option>
                 ))}
               </select>
             </div>

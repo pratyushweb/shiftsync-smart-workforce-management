@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -9,7 +9,35 @@ import { motion } from 'framer-motion';
 
 
 export function ProfilePage() {
-  const { user } = useAuthStore();
+  const { user, updateProfile, isLoading } = useAuthStore();
+  const [fullName, setFullName] = useState(user?.name || user?.fullName || '');
+  const [jobTitle, setJobTitle] = useState(user?.jobTitle || 'Server');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  React.useEffect(() => {
+    if (user) {
+      setFullName(user.name || user.fullName || '');
+      setJobTitle(user.jobTitle || 'Server');
+    }
+  }, [user]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      await updateProfile({
+        fullName,
+        jobTitle: user?.role === 'employee' ? jobTitle : undefined
+      });
+      setSuccessMsg('Profile updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to update profile';
+      setErrorMsg(msg);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-10">
@@ -67,15 +95,67 @@ export function ProfilePage() {
                   <Badge variant="primary" className="font-bold tracking-tight uppercase px-2.5">
                     {user?.role || 'Member'}
                   </Badge>
+                  {user?.role === 'employee' && (
+                    <Badge variant="success" className="font-bold tracking-tight uppercase px-2.5">
+                      {user?.jobTitle || 'Server'}
+                    </Badge>
+                  )}
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee ID: #SS-4829</span>
                 </div>
               </div>
             </div>
 
-            <form className="space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {successMsg && (
+                <motion.div 
+                   initial={{ opacity: 0, scale: 0.95 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   className="p-4 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm"
+                >
+                  {successMsg}
+                </motion.div>
+              )}
+
+              {errorMsg && (
+                <motion.div 
+                   initial={{ opacity: 0, scale: 0.95 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   className="p-4 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl"
+                >
+                  {errorMsg}
+                </motion.div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <Input label="Full Name" defaultValue={user?.name} />
-                <Input label="Email Address" type="email" defaultValue={user?.email} />
+                <Input 
+                  label="Full Name" 
+                  value={fullName} 
+                  onChange={(e) => setFullName(e.target.value)} 
+                  required 
+                />
+                <Input 
+                  label="Email Address" 
+                  type="email" 
+                  value={user?.email || ''} 
+                  disabled 
+                  className="bg-slate-50 cursor-not-allowed text-slate-400"
+                />
+
+                {user?.role === 'employee' && (
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400 block mb-2">Job Role / Label</label>
+                    <select
+                      value={jobTitle}
+                      onChange={(e) => setJobTitle(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200/80 p-4 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm bg-white"
+                    >
+                      {['Server', 'Cook', 'Host', 'Cashier'].map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="sm:col-span-2">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-400 block mb-2">Bio / Professional Summary</label>
                   <textarea 
@@ -87,7 +167,7 @@ export function ProfilePage() {
               </div>
               
               <div className="pt-6 border-t border-slate-50 flex justify-end">
-                <Button>Update Profile</Button>
+                <Button type="submit" isLoading={isLoading}>Update Profile</Button>
               </div>
             </form>
           </Card>

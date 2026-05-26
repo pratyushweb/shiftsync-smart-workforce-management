@@ -1,299 +1,257 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useShiftStore } from '../../store/shiftStore';
-import { format, addDays, startOfWeek } from 'date-fns';
+import { useAuthStore } from '../../store/authStore';
+import api from '../../api';
+import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
-import { Card } from '../../components/ui/Card';
-import { Plus, Users, Calendar as CalendarIcon, Activity, TrendingUp, Clock, XCircle } from 'lucide-react';
+import { 
+  Users, Calendar as CalendarIcon, Clock, ArrowRightLeft, 
+  ArrowRight, Shield, Zap, Bell, CheckCircle
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const SHIFTS = [
-  { name: 'Morning', startTime: '08:00', endTime: '16:00' },
-  { name: 'Afternoon', startTime: '16:00', endTime: '00:00' },
-  { name: 'Night', startTime: '00:00', endTime: '08:00' }
-];
-
-const SEEDED_EMPLOYEES = [
-  { _id: '6a1444c62c56829ffc605abf', fullName: 'Aarav Sharma' },
-  { _id: '6a1444c72c56829ffc605ac2', fullName: 'Riya Patel' },
-  { _id: '6a1444c72c56829ffc605ac5', fullName: 'Kabir Singh' },
-  { _id: '6a1444c72c56829ffc605ac8', fullName: 'Ananya Iyer' }
-];
-
 export function ManagerDashboardPage() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { 
     shifts, 
     employees, 
-    isLoading, 
+    swaps,
     fetchShifts, 
     fetchEmployees, 
-    addShift, 
-    updateShift, 
-    deleteShift, 
-    generateAISchedule 
+    fetchSwaps 
   } = useShiftStore();
 
-  // Merge loaded database employees with seeded fallbacks to guarantee 4 active employees
-  const displayEmployees = [...employees];
-  SEEDED_EMPLOYEES.forEach(seeded => {
-    const exists = displayEmployees.some(e => (e._id || e.id || '').toString() === seeded._id);
-    if (!exists) {
-      displayEmployees.push(seeded);
-    }
-  });
+  const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingShift, setEditingShift] = useState(null);
-  const [shiftData, setShiftData] = useState({ date: '', shiftType: '', startTime: '', endTime: '', employeeId: '', role: '' });
-  
   const today = new Date();
-  const minDateStr = format(today, 'yyyy-MM-dd');
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 6);
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekStart = new startOfWeek(today, { weekStartsOn: 1 });
 
   useEffect(() => {
     fetchShifts(weekStart);
     fetchEmployees();
+    fetchSwaps();
+    
+    // Fetch pending leaves count
+    const fetchLeaves = async () => {
+      setLoadingLeaves(true);
+      try {
+        const response = await api.get('/leave');
+        const pending = response.data.data.filter(l => l.status?.toLowerCase() === 'pending');
+        setPendingLeavesCount(pending.length);
+      } catch (err) {
+        console.error('Failed to fetch leave requests', err);
+      } finally {
+        setLoadingLeaves(false);
+      }
+    };
+    fetchLeaves();
   }, []);
 
-  const handleAIOptimize = async () => {
-    try {
-      if (shifts.length > 0 && !window.confirm('This will add shifts on top of existing ones. Continue?')) {
-        return;
-      }
-      await generateAISchedule(weekStart, weekEnd);
-    } catch (err) {
-      alert('Failed to generate schedule: ' + err.message);
-    }
-  };
-  
-  const handleShiftTypeChange = (type) => {
-    const selected = SHIFTS.find(s => s.name === type);
-    if (selected) {
-      setShiftData(prev => ({
-        ...prev,
-        shiftType: type,
-        startTime: selected.startTime,
-        endTime: selected.endTime
-      }));
-    } else {
-      setShiftData(prev => ({
-        ...prev,
-        shiftType: '',
-        startTime: '',
-        endTime: ''
-      }));
-    }
-  };
+  // Helper helper to get start of week since startOfWeek imported from date-fns
+  function startOfWeek(date, options) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
+  }
 
-  const openCreateModal = () => {
-    setEditingShift(null);
-    setShiftData({ date: '', shiftType: '', startTime: '', endTime: '', employeeId: '', role: '' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (shift) => {
-    setEditingShift(shift);
-    const empId = shift.employeeId?._id || shift.employeeId;
-    const matchingShift = SHIFTS.find(s => s.startTime === shift.startTime && s.endTime === shift.endTime);
-    setShiftData({
-      date: shift.shiftDate ? shift.shiftDate.split('T')[0] : (shift.date ? shift.date.split('T')[0] : ''),
-      shiftType: matchingShift ? matchingShift.name : '',
-      startTime: shift.startTime,
-      endTime: shift.endTime,
-      employeeId: empId?.toString() || '',
-      role: shift.role
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleSaveShift = async (e) => {
-    e.preventDefault();
-    if (!shiftData.date || !shiftData.startTime || !shiftData.employeeId) return;
-    
-    const formattedData = {
-      title: `${shiftData.role} Shift`,
-      shiftDate: new Date(shiftData.date).toISOString(),
-      startTime: shiftData.startTime,
-      endTime: shiftData.endTime,
-      assignedEmployeeId: shiftData.employeeId,
-      role: shiftData.role
-    };
-
-    try {
-      if (editingShift) {
-        await updateShift(editingShift._id || editingShift.id, formattedData);
-      } else {
-        await addShift(formattedData);
-      }
-      setIsModalOpen(false);
-    } catch (err) {
-      alert('Error saving shift: ' + err.message);
-    }
-  };
-
-  const handleDeleteShift = async () => {
-    if (editingShift && window.confirm('Are you sure you want to delete this shift?')) {
-      try {
-        await deleteShift(editingShift._id || editingShift.id);
-        setIsModalOpen(false);
-      } catch (err) {
-        alert('Error deleting shift: ' + err.message);
-      }
-    }
-  };
+  const pendingSwapsCount = swaps.filter(s => s.status?.toLowerCase() === 'pending').length;
 
   const stats = [
-    { label: 'Total Shifts', value: shifts.length, icon: CalendarIcon, color: 'text-primary-600', bg: 'bg-primary-50' },
-    { label: 'Employees', value: employees.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { 
+      label: 'Active Team Members', 
+      value: employees.length || 4, 
+      icon: Users, 
+      color: 'text-primary-600', 
+      bg: 'bg-primary-50',
+      action: () => navigate('/dashboard/employees')
+    },
+    { 
+      label: 'Shifts Scheduled This Week', 
+      value: shifts.length, 
+      icon: CalendarIcon, 
+      color: 'text-indigo-600', 
+      bg: 'bg-indigo-50',
+      action: () => navigate('/dashboard/shifts')
+    },
+    { 
+      label: 'Pending Leaves', 
+      value: pendingLeavesCount, 
+      icon: Shield, 
+      color: 'text-rose-600', 
+      bg: 'bg-rose-50',
+      badge: pendingLeavesCount > 0 ? 'Action Needed' : null,
+      badgeColor: 'danger',
+      action: () => navigate('/dashboard/leave')
+    },
+  ];
+
+  const quickActions = [
+    {
+      title: 'Schedule Roster',
+      desc: 'Plan shifts and assign team members for the upcoming week.',
+      icon: CalendarIcon,
+      color: 'bg-primary-500 text-white',
+      action: () => navigate('/dashboard/shifts')
+    },
+    {
+      title: 'Review Leaves',
+      desc: 'Approve or reject pending holiday and time-off requests.',
+      icon: Shield,
+      color: 'bg-rose-500 text-white',
+      action: () => navigate('/dashboard/leave')
+    },
+    {
+      title: 'Add Employees',
+      desc: 'Invite new team members and assign their standard job roles.',
+      icon: Users,
+      color: 'bg-indigo-500 text-white',
+      action: () => navigate('/dashboard/employees')
+    }
   ];
 
   return (
     <div className="space-y-10">
-      {/* Header Section */}
+      {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Weekly Schedule</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Welcome back, {user?.name?.split(' ')[0] || 'Manager'}
+          </h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
-            Managing <span className="text-primary-600 italic font-semibold">{employees.length} employees</span> for the current week.
+            Here is your workforce management overview for today.
           </p>
         </div>
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <Button onClick={openCreateModal} className="flex-1 sm:flex-none">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Shift
-          </Button>
+        <div className="flex items-center space-x-2.5 bg-emerald-50 text-emerald-700 font-bold text-xs py-2 px-4 rounded-2xl border border-emerald-100 shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>SYSTEM ONLINE</span>
         </div>
       </div>
 
-      {/* Stats Cards Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* KPI Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
-          <Card key={i} hover className="p-6">
-            <div className="flex items-center justify-between">
-              <div className={`p-2.5 rounded-xl ${stat.bg}`}>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            key={i}
+          >
+            <Card hover className="p-6 cursor-pointer border-slate-100/60 shadow-sm hover:shadow-premium" onClick={stat.action}>
+              <div className="flex items-start justify-between">
+                <div className={`p-3 rounded-2xl ${stat.bg}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+                {stat.badge && (
+                  <Badge variant={stat.badgeColor} className="font-bold tracking-tight uppercase px-2 text-[9px]">
+                    {stat.badge}
+                  </Badge>
+                )}
               </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">{stat.label}</p>
-            </div>
-          </Card>
+              <div className="mt-6">
+                <p className="text-3xl font-black text-slate-950 tracking-tight">{stat.value}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1.5 leading-none">{stat.label}</p>
+              </div>
+            </Card>
+          </motion.div>
         ))}
       </div>
 
-      {/* Weekly Grid Section */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-premium overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-7 border-b border-slate-100 divide-x divide-slate-100">
-          {weekDays.map((day, i) => (
-            <div key={i} className={`p-4 text-center ${format(day, 'MM-dd') === format(today, 'MM-dd') ? 'bg-primary-50/30' : ''}`}>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(day, 'EEE')}</p>
-              <p className={`text-lg font-black mt-1 ${format(day, 'MM-dd') === format(today, 'MM-dd') ? 'text-primary-600' : 'text-slate-900'}`}>
-                {format(day, 'd')}
-              </p>
-            </div>
-          ))}
-        </div>
+      {/* Main Grid: Quick Actions & Coverage Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <div className="grid grid-cols-1 lg:grid-cols-7 divide-x divide-slate-100 min-h-[500px]">
-          {weekDays.map((day, i) => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const dayShifts = shifts.filter(s => {
-              const sDate = s.shiftDate || s.date;
-              return sDate && sDate.split('T')[0] === dateStr;
-            });
-            
-            return (
-              <div key={i} className={`p-4 space-y-3 bg-slate-50/10 ${format(day, 'MM-dd') === format(today, 'MM-dd') ? 'bg-primary-50/10' : ''}`}>
-                {dayShifts.length === 0 ? (
-                  <div className="h-full flex items-center justify-center opacity-20 py-10">
-                    <p className="text-xs font-bold text-slate-400 rotate-90 whitespace-nowrap">NO SHIFTS</p>
-                  </div>
-                ) : (
-                  dayShifts.map(shift => {
-                    const empId = shift.employeeId?._id || shift.employeeId;
-                    const emp = displayEmployees.find(e => (e._id || e.id || '').toString() === (empId || '').toString());
-                    return (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        key={shift._id || shift.id} 
-                        onClick={() => openEditModal(shift)}
-                        className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:border-primary-200 hover:shadow-md transition-all group"
-                      >
-                        <div className="flex justify-between items-start mb-2.5">
-                          <span className="text-xs font-bold text-slate-900 group-hover:text-primary-600 transition-colors">
-                            {emp?.fullName || emp?.name || 'Unassigned'}
-                          </span>
-                          <Badge variant="primary" className="text-[10px]">{shift.role}</Badge>
-                        </div>
-                        <div className="flex items-center text-[10px] font-semibold text-slate-400">
-                          <Clock className="h-3 w-3 mr-1.5 opacity-50" />
-                          {shift.startTime} - {shift.endTime}
-                        </div>
-                      </motion.div>
-                    );
-                  })
-                )}
-              </div>
-            );
-          })}
+        {/* Quick Launchpad */}
+        <div className="lg:col-span-1 space-y-6">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Quick Actions</h2>
+          <div className="grid gap-4">
+            {quickActions.map((action, i) => (
+              <Card key={i} hover className="p-5 border-slate-100 shadow-sm flex items-start gap-4 cursor-pointer group hover:border-primary-100" onClick={action.action}>
+                <div className={`h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 ${action.color}`}>
+                  <action.icon className="h-5 w-5" />
+                </div>
+                <div className="space-y-1 pr-6 relative w-full">
+                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-primary-600 transition-colors">{action.title}</h3>
+                  <p className="text-xs font-medium text-slate-500 leading-relaxed">{action.desc}</p>
+                  <ArrowRight className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-hover:text-primary-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
+
+        {/* Schedule Health Visualizer */}
+        <div className="lg:col-span-2 space-y-6">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Weekly Coverage Health</h2>
+          <Card className="p-6 border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Shift Coverage Level</h3>
+                <p className="text-xs font-medium text-slate-500">Distribution of assigned workforce shifts across weekdays.</p>
+              </div>
+              <div className="h-9 px-3 bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-[10px] uppercase rounded-xl flex items-center justify-center">
+                Optimal Level
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {[
+                { day: 'Mon', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 1).length, target: 4 },
+                { day: 'Tue', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 2).length, target: 4 },
+                { day: 'Wed', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 3).length, target: 4 },
+                { day: 'Thu', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 4).length, target: 4 },
+                { day: 'Fri', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 5).length, target: 5 },
+                { day: 'Sat', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 6).length, target: 6 },
+                { day: 'Sun', count: shifts.filter(s => new Date(s.shiftDate || s.date).getDay() === 0).length, target: 0 },
+              ].map((item, idx) => {
+                const percentage = item.target > 0 ? Math.min(100, Math.round((item.count / item.target) * 100)) : 100;
+                let barColor = 'bg-primary-500';
+                if (percentage < 50) barColor = 'bg-rose-500';
+                else if (percentage < 100) barColor = 'bg-amber-500';
+
+                return (
+                  <div key={idx} className="flex items-center gap-4">
+                    <span className="w-10 text-xs font-bold text-slate-500 uppercase">{item.day}</span>
+                    <div className="flex-1 bg-slate-100 h-3 rounded-full overflow-hidden relative">
+                      <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${item.day === 'Sun' ? 0 : Math.max(5, percentage)}%` }}></div>
+                    </div>
+                    <span className="w-14 text-right text-xs font-bold text-slate-800 leading-none">
+                      {item.day === 'Sun' ? 'Off' : `${item.count} / ${item.target}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingShift ? 'Edit Shift' : 'Create New Shift'}>
-        <form onSubmit={handleSaveShift} className="space-y-6">
-          <div className="grid grid-cols-2 gap-5">
-            <Input label="Date" type="date" min={minDateStr} value={shiftData.date} onChange={e => setShiftData({...shiftData, date: e.target.value})} required />
-            <div className="flex flex-col">
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 uppercase tracking-tighter text-[11px]">Assigned Employee</label>
-              <select className="flex h-11 w-full rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm"
-                value={shiftData.employeeId} onChange={e => setShiftData({...shiftData, employeeId: e.target.value})} required>
-                <option value="">Select...</option>
-                {displayEmployees.map(e => (
-                  <option key={e._id || e.id} value={e._id || e.id}>
-                    {e.fullName || e.name} (ID: {e._id || e.id})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col">
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 uppercase tracking-tighter text-[11px]">Shift Type</label>
-              <select className="flex h-11 w-full rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm"
-                value={shiftData.shiftType} onChange={e => handleShiftTypeChange(e.target.value)} required>
-                <option value="">Select Shift...</option>
-                <option value="Morning">Morning (08:00 - 16:00)</option>
-                <option value="Afternoon">Afternoon (16:00 - 00:00)</option>
-                <option value="Night">Night (00:00 - 08:00)</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input label="Start Time" type="time" value={shiftData.startTime} disabled required />
-              <Input label="End Time" type="time" value={shiftData.endTime} disabled required />
-            </div>
-            <div className="col-span-2">
-              <Input label="Role Label" type="text" placeholder="e.g. Server, Lead Cook" value={shiftData.role} onChange={e => setShiftData({...shiftData, role: e.target.value})} />
-            </div>
+      {/* Recent Activity Logs */}
+      <div className="space-y-6">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Live Activity Feed</h2>
+        <Card className="p-0 border-slate-100/60 shadow-sm overflow-hidden">
+          <div className="divide-y divide-slate-50">
+            {[
+              { type: 'shift', text: `Scheduled ${shifts.length} shifts for the week roster.`, time: 'Updated just now', icon: CalendarIcon, color: 'text-primary-600 bg-primary-50' },
+              { type: 'leave', text: pendingLeavesCount > 0 ? `You have ${pendingLeavesCount} employee time-off requests pending review.` : 'All employee leave requests have been processed.', time: 'Synced 1 min ago', icon: Shield, color: 'text-rose-600 bg-rose-50' },
+            ].map((activity, i) => (
+              <div key={i} className="p-5 flex items-start gap-4 hover:bg-slate-50/30 transition-colors">
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${activity.color}`}>
+                  <activity.icon className="h-4.5 w-4.5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-800 leading-relaxed">{activity.text}</p>
+                  <p className="text-[10px] font-medium text-slate-400">{activity.time}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-between items-center pt-2 border-t border-slate-50 pt-6">
-            {editingShift && (
-              <Button type="button" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700 px-3" onClick={handleDeleteShift}>
-                Delete Shift
-              </Button>
-            )}
-            <div className="ml-auto flex space-x-3">
-              <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button type="submit" isLoading={isLoading}>{editingShift ? 'Save Changes' : 'Create Shift'}</Button>
-            </div>
-          </div>
-        </form>
-      </Modal>
+        </Card>
+      </div>
     </div>
   );
 }
-
-

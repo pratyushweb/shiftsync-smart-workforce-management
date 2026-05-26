@@ -5,6 +5,7 @@ export const useShiftStore = create((set, get) => ({
   shifts: [],
   employees: [],
   swaps: [],
+  availability: [],
   isLoading: false,
 
   fetchShifts: async (weekStartDate) => {
@@ -113,6 +114,49 @@ export const useShiftStore = create((set, get) => ({
       return response.data.data;
     } catch (err) {
       console.error('Request swap failed', err);
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  respondToSwap: async (swapId, responseStatus) => {
+    set({ isLoading: true });
+    try {
+      const response = await api.post('/swaps/respond', { swapId, response: responseStatus });
+      const updatedSwap = response.data.data;
+      set((state) => ({
+        swaps: state.swaps.map(s => (s._id === swapId || s.id === swapId) ? { ...s, ...updatedSwap } : s),
+        isLoading: false
+      }));
+      return updatedSwap;
+    } catch (err) {
+      console.error('Respond to swap failed', err);
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  fetchAvailability: async () => {
+    set({ isLoading: true });
+    try {
+      const response = await api.get('/availability');
+      set({ availability: response.data.data, isLoading: false });
+      return response.data.data;
+    } catch (err) {
+      console.error('Fetch availability failed', err);
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  saveAvailability: async (availabilityList) => {
+    set({ isLoading: true });
+    try {
+      const response = await api.put('/availability', { availabilityList });
+      set({ availability: response.data.data, isLoading: false });
+      return response.data.data;
+    } catch (err) {
+      console.error('Save availability failed', err);
       set({ isLoading: false });
       throw err;
     }

@@ -31,7 +31,7 @@ export const registerManager = async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: {
-        user: { id: user._id, email: user.email, fullName: user.fullName, role: user.role, businessId: business._id },
+        user: { id: user._id, email: user.email, fullName: user.fullName, name: user.fullName, role: user.role, businessId: business._id },
         accessToken,
         refreshToken
       }
@@ -60,7 +60,7 @@ export const login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        user: { id: user._id, email: user.email, fullName: user.fullName, role: user.role, businessId: user.businessId },
+        user: { id: user._id, email: user.email, fullName: user.fullName, name: user.fullName, role: user.role, businessId: user.businessId },
         accessToken,
         refreshToken
       }
@@ -86,3 +86,66 @@ export const refresh = async (req, res, next) => {
     res.status(403).json({ success: false, message: 'Invalid or expired refresh token' });
   }
 };
+
+export const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        name: user.fullName,
+        role: user.role,
+        businessId: user.businessId,
+        jobTitle: user.jobTitle
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  const { fullName, jobTitle } = req.body;
+
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (fullName) user.fullName = fullName;
+    if (jobTitle) {
+      if (user.role === 'employee') {
+        const allowedRoles = ['Server', 'Cook', 'Host', 'Cashier'];
+        if (!allowedRoles.includes(jobTitle)) {
+          return res.status(400).json({ success: false, message: 'Invalid role selection' });
+        }
+      }
+      user.jobTitle = jobTitle;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        name: user.fullName,
+        role: user.role,
+        businessId: user.businessId,
+        jobTitle: user.jobTitle
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

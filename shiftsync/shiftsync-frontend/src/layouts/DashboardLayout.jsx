@@ -4,10 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import { 
   Calendar, LayoutDashboard, Users, Clock, 
-  Settings, Bell, LogOut, Menu, X, ArrowRightLeft, Search
+  Settings, Bell, LogOut, Menu, X, ArrowRightLeft
 } from 'lucide-react';
 import { NotificationDropdown } from '../components/dashboard/NotificationDropdown';
-import { CommandPalette } from '../components/dashboard/CommandPalette';
 import { useAuthStore } from '../store/authStore';
 
 export function DashboardLayout({ role = 'manager' }) {
@@ -21,7 +20,6 @@ export function DashboardLayout({ role = 'manager' }) {
     { name: 'Employees', href: '/dashboard/employees', icon: Users },
     { name: 'Shifts', href: '/dashboard/shifts', icon: Calendar },
     { name: 'Leave Requests', href: '/dashboard/leave', icon: Clock },
-    { name: 'Shift Swaps', href: '/dashboard/swaps', icon: ArrowRightLeft },
   ];
 
   const employeeLinks = [
@@ -35,7 +33,6 @@ export function DashboardLayout({ role = 'manager' }) {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans selection:bg-primary-100 selection:text-primary-900">
-      <CommandPalette />
       
       {/* Sidebar Desktop */}
       <aside className="hidden w-72 flex-col border-r border-slate-200/60 bg-white/80 backdrop-blur-xl md:flex">
@@ -97,11 +94,6 @@ export function DashboardLayout({ role = 'manager' }) {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-500 md:hidden hover:bg-slate-50 rounded-xl transition-colors">
               <Menu className="h-6 w-6" />
             </button>
-            <div className="hidden md:flex items-center px-3.5 py-2 bg-slate-100/50 border border-slate-200/50 rounded-xl cursor-not-allowed group transition-all hover:bg-slate-100">
-              <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-500 mr-2.5" />
-              <span className="text-sm text-slate-400 group-hover:text-slate-500 mr-8">Search anything...</span>
-              <kbd className="hidden sm:inline-flex items-center rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-slate-200">⌘K</kbd>
-            </div>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-5 ml-auto">
             <div className="relative">

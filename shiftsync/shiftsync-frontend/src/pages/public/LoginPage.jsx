@@ -11,6 +11,9 @@ import { motion } from 'framer-motion';
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
   const login = useAuthStore(state => state.login);
   const isLoading = useAuthStore(state => state.isLoading);
   const error = useAuthStore(state => state.error);
@@ -27,6 +30,16 @@ export function LoginPage() {
     } catch (err) {
       // Error handled in store
     }
+  };
+
+  const handleResetSubmit = (e) => {
+    e.preventDefault();
+    setResetSuccess(true);
+    setTimeout(() => {
+      setResetSuccess(false);
+      setIsForgotPassword(false);
+      setResetEmail('');
+    }, 3500);
   };
 
   return (
@@ -46,76 +59,134 @@ export function LoginPage() {
             <span className="text-2xl font-bold tracking-tight text-slate-900 italic">ShiftSync</span>
           </div>
 
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Enter your credentials to manage your workforce
-            </p>
-          </div>
+          {!isForgotPassword ? (
+            <>
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Enter your credentials to manage your workforce
+                </p>
+              </div>
 
-          <div className="mt-10">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {successMessage && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm"
-                >
-                  {successMessage}
-                </motion.div>
-              )}
+              <div className="mt-10">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {successMessage && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm"
+                    >
+                      {successMessage}
+                    </motion.div>
+                  )}
 
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl"
-                >
-                  {error}
-                </motion.div>
-              )}
+                  {error && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl"
+                    >
+                      {error}
+                    </motion.div>
+                  )}
 
-              <div className="space-y-5">
-                <Input
-                  label="Email Address"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                />
-                
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-medium text-slate-700">Password</label>
-                    <a href="#" className="text-xs font-semibold text-primary-600 hover:text-primary-500 underline-offset-4 hover:underline">
-                      Forgot?
-                    </a>
+                  <div className="space-y-5">
+                    <Input
+                      label="Email Address"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@company.com"
+                    />
+                    
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-sm font-medium text-slate-700">Password</label>
+                        <button 
+                          type="button"
+                          onClick={() => setIsForgotPassword(true)}
+                          className="text-xs font-semibold text-primary-600 hover:text-primary-500 underline-offset-4 hover:underline bg-transparent border-none p-0 cursor-pointer"
+                        >
+                          Forgot?
+                        </button>
+                      </div>
+                      <Input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
                   </div>
-                  <Input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
+
+                  <div className="pt-2">
+                    <Button type="submit" className="w-full" isLoading={isLoading}>
+                      Sign in
+                    </Button>
+                  </div>
+
+                  <p className="text-center text-sm text-slate-500">
+                    Don't have an account?{' '}
+                    <Link to="/signup" className="font-semibold text-primary-600 hover:text-primary-500 underline-offset-4 hover:underline">
+                      Sign up
+                    </Link>
+                  </p>
+                </form>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Reset password</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Enter your email address to receive reset instructions
+                </p>
               </div>
 
-              <div className="pt-2">
-                <Button type="submit" className="w-full" isLoading={isLoading}>
-                  Sign in
-                </Button>
-              </div>
+              <div className="mt-10">
+                <form onSubmit={handleResetSubmit} className="space-y-6">
+                  {resetSuccess && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl shadow-sm"
+                    >
+                      Reset link sent! Please check your email inbox.
+                    </motion.div>
+                  )}
 
-              <p className="text-center text-sm text-slate-500">
-                Don't have an account?{' '}
-                <Link to="/signup" className="font-semibold text-primary-600 hover:text-primary-500 underline-offset-4 hover:underline">
-                  Sign up
-                </Link>
-              </p>
-            </form>
-          </div>
+                  <div className="space-y-5">
+                    <Input
+                      label="Email Address"
+                      type="email"
+                      required
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="name@company.com"
+                    />
+                  </div>
+
+                  <div className="pt-2 space-y-4">
+                    <Button type="submit" className="w-full">
+                      Send Reset Link
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(false);
+                        setResetSuccess(false);
+                      }}
+                      className="w-full text-center text-sm font-semibold text-slate-500 hover:text-slate-700 hover:underline underline-offset-4"
+                    >
+                      Back to sign in
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </>
+          )}
 
           <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between grayscale opacity-50 contrast-125">
             <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Trusted by teams at</p>

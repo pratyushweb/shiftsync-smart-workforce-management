@@ -41,3 +41,26 @@ export const handleLeaveRequest = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getLeaves = async (req, res, next) => {
+  try {
+    if (req.user.role === 'manager') {
+      const usersInBusiness = await User.find({ businessId: req.user.businessId }).select('_id');
+      const userIds = usersInBusiness.map(u => u._id);
+
+      const leaves = await LeaveRequest.find({ userId: { $in: userIds } })
+        .populate('userId', 'fullName email jobTitle')
+        .sort({ createdAt: -1 });
+
+      res.status(200).json({ success: true, data: leaves });
+    } else {
+      const leaves = await LeaveRequest.find({ userId: req.user._id })
+        .populate('userId', 'fullName email jobTitle')
+        .sort({ createdAt: -1 });
+
+      res.status(200).json({ success: true, data: leaves });
+    }
+  } catch (error) {
+    next(error);
+  }
+};

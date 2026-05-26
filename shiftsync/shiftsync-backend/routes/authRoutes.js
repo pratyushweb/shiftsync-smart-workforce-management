@@ -1,7 +1,8 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { registerManager, login, refresh } from '../controllers/authController.js';
+import { registerManager, login, refresh, getMe, updateProfile } from '../controllers/authController.js';
 import { validate } from '../middleware/validate.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -18,5 +19,8 @@ router.post('/login', [
 ], validate, login);
 
 router.post('/refresh', refresh);
+
+router.get('/me', verifyToken, getMe);
+router.put('/profile', verifyToken, updateProfile);
 
 export default router;

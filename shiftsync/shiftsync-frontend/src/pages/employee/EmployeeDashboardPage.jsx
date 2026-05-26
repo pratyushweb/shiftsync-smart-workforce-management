@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useShiftStore } from '../../store/shiftStore';
 import { format, addDays, startOfWeek } from 'date-fns';
@@ -12,15 +12,27 @@ import { motion } from 'framer-motion';
 export function EmployeeDashboardPage() {
   const { user } = useAuthStore();
   const { shifts } = useShiftStore();
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // In a real app we'd fetch this from backend based on user ID
-  const myShifts = shifts.filter(s => s.employeeId === (user?.id || 2));
+  const myShifts = shifts.filter(s => s.employeeId === (user?.id || user?._id || 2));
   
-  const todayShift = myShifts.find(s => s.date.split('T')[0] === today.toISOString().split('T')[0]);
+  const isTodaySunday = today.getDay() === 0;
+  const dbTodayShift = myShifts.find(s => {
+    const sDate = typeof s.date === 'string' ? s.date : s.date?.toISOString();
+    return sDate?.split('T')[0] === today.toISOString().split('T')[0];
+  });
+
+  const todayShift = dbTodayShift || (!isTodaySunday ? {
+    role: user?.jobTitle || 'Employee',
+    startTime: '09:00 AM',
+    endTime: '05:30 PM',
+    length: '8.5hr'
+  } : null);
 
   return (
     <div className="space-y-10">
@@ -67,16 +79,46 @@ export function EmployeeDashboardPage() {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 border-0 h-16 px-10 rounded-2xl text-lg font-black group/btn">
-                    <Play className="mr-3 h-6 w-6 fill-current transition-transform group-hover/btn:scale-110" />
-                    Clock In
-                  </Button>
-                  <Button variant="outline" size="lg" className="h-16 px-8 rounded-2xl border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-lg font-bold">
-                    View Instructions
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="h-16 px-8 rounded-2xl border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-lg font-bold"
+                    onClick={() => setShowInstructions(!showInstructions)}
+                  >
+                    {showInstructions ? 'Hide Instructions' : 'View Instructions'}
                   </Button>
                 </div>
               </div>
             </Card>
+        </motion.div>
+      )}
+
+      {showInstructions && todayShift && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="p-6 bg-white border border-slate-200/80 rounded-3xl shadow-sm space-y-4"
+        >
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Shift Instructions</h3>
+          <ul className="space-y-3 text-sm text-slate-600">
+            <li className="flex items-start">
+              <span className="h-5 w-5 rounded-full bg-primary-50 text-primary-600 font-bold text-xs flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">1</span>
+              <span><strong>Arrival & Uniform:</strong> Please arrive 10 minutes prior to your shift in full professional uniform.</span>
+            </li>
+            <li className="flex items-start">
+              <span className="h-5 w-5 rounded-full bg-primary-50 text-primary-600 font-bold text-xs flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">2</span>
+              <span><strong>Daily Briefing:</strong> Sync with your manager upon arrival to receive your specific task allocations for the day.</span>
+            </li>
+            <li className="flex items-start">
+              <span className="h-5 w-5 rounded-full bg-primary-50 text-primary-600 font-bold text-xs flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">3</span>
+              <span><strong>Safety Guidelines:</strong> Sanitize your station before starting operations and verify adherence to safety regulations.</span>
+            </li>
+            <li className="flex items-start">
+              <span className="h-5 w-5 rounded-full bg-primary-50 text-primary-600 font-bold text-xs flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">4</span>
+              <span><strong>Break Coordination:</strong> Communicate with your team members prior to taking scheduled breaks to maintain full floor coverage.</span>
+            </li>
+          </ul>
         </motion.div>
       )}
 
@@ -91,7 +133,18 @@ export function EmployeeDashboardPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-5">
           {weekDays.map((day, i) => {
-            const shift = myShifts.find(s => s.date.split('T')[0] === day.toISOString().split('T')[0]);
+            const dbShift = myShifts.find(s => {
+              const sDate = typeof s.date === 'string' ? s.date : s.date?.toISOString();
+              return sDate?.split('T')[0] === day.toISOString().split('T')[0];
+            });
+            const isSunday = day.getDay() === 0;
+            const shift = dbShift || (!isSunday ? {
+              role: user?.jobTitle || 'Employee',
+              startTime: '09:00 AM',
+              endTime: '05:30 PM',
+              length: '8.5hr'
+            } : null);
+
             const isToday = format(day, 'MM-dd') === format(today, 'MM-dd');
             
             return (
@@ -131,22 +184,6 @@ export function EmployeeDashboardPage() {
             );
           })}
         </div>
-      </div>
-      
-      <div className="bg-slate-50/50 rounded-3xl p-8 border border-dashed border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-              <div className="h-14 w-14 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-emerald-500">
-                  <CheckCircle className="h-7 w-7" />
-              </div>
-              <div className="space-y-1">
-                  <h3 className="text-base font-bold text-slate-900">Weekly Performance</h3>
-                  <p className="text-sm font-medium text-slate-500">You've completed 100% of your shifts this week. Keep it up!</p>
-              </div>
-          </div>
-          <Button variant="secondary" className="bg-white group/arrow px-6">
-              View Analytics
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover/arrow:translate-x-1" />
-          </Button>
       </div>
     </div>
   );

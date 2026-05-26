@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
   },
   jobTitle: {
     type: String,
+    enum: ['Server', 'Cook', 'Host', 'Cashier', 'Manager', 'Employee'],
     default: 'Employee'
   },
   avatarUrl: {

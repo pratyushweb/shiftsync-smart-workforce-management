@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { requestLeave, handleLeaveRequest } from '../controllers/leaveController.js';
+import { requestLeave, handleLeaveRequest, getLeaves } from '../controllers/leaveController.js';
 import { verifyToken, roleCheck } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -8,8 +8,10 @@ const router = express.Router();
 
 router.use(verifyToken);
 
+router.get('/', roleCheck('employee', 'manager'), getLeaves);
+
 router.post('/request',
-  roleCheck('employee', 'manager'),
+  roleCheck('employee'),
   [
     body('startDate').isISO8601(),
     body('endDate').isISO8601(),

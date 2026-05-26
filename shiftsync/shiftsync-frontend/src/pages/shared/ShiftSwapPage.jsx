@@ -5,7 +5,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { ArrowRightLeft, Calendar as CalendarIcon, User } from 'lucide-react';
+import { ArrowRightLeft, Calendar as CalendarIcon, User, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
@@ -19,12 +19,18 @@ const SEEDED_EMPLOYEES = [
 
 export function ShiftSwapPage() {
   const { user } = useAuthStore();
-  const { swaps, shifts, employees, fetchSwaps, fetchShifts, requestSwap, isLoading } = useShiftStore();
+  const { swaps, shifts, employees, fetchSwaps, fetchShifts, requestSwap, respondToSwap, isLoading } = useShiftStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     shiftId: '',
     targetUserId: '',
   });
+
+  const DEFAULT_SHIFTS = [
+    { _id: '6a1444c82c56829ffc605abf', title: 'Morning Shift', shiftDate: new Date().toISOString(), startTime: '08:00', endTime: '16:00' },
+    { _id: '6a1444c82c56829ffc605ac2', title: 'Afternoon Shift', shiftDate: new Date().toISOString(), startTime: '16:00', endTime: '00:00' },
+    { _id: '6a1444c82c56829ffc605ac5', title: 'Night Shift', shiftDate: new Date().toISOString(), startTime: '00:00', endTime: '08:00' }
+  ];
 
   React.useEffect(() => {
     fetchSwaps();
@@ -42,24 +48,19 @@ export function ShiftSwapPage() {
     }
   });
 
-  let myShifts = shifts.filter(s => {
+  let assignedShifts = shifts.filter(s => {
     const empId = s.employeeId?._id || s.employeeId;
     const myId = user?.id || user?._id;
     return empId && myId && empId.toString() === myId.toString();
   });
 
-  // If no shifts are assigned to the currently logged in user, show all shifts or seeded shifts so they can test
-  if (myShifts.length === 0) {
-    if (shifts.length > 0) {
-      myShifts = shifts;
-    } else {
-      myShifts = [
-        { _id: 'sh-1', title: 'Morning Shift', shiftDate: new Date().toISOString(), startTime: '08:00', endTime: '16:00' },
-        { _id: 'sh-2', title: 'Afternoon Shift', shiftDate: new Date().toISOString(), startTime: '16:00', endTime: '00:00' },
-        { _id: 'sh-3', title: 'Night Shift', shiftDate: new Date().toISOString(), startTime: '00:00', endTime: '08:00' }
-      ];
+  // Always append the three standard default shifts to selection so they can test/swap any
+  const myShifts = [...assignedShifts];
+  DEFAULT_SHIFTS.forEach(defShift => {
+    if (!myShifts.some(s => (s._id || s.id || '').toString() === defShift._id)) {
+      myShifts.push(defShift);
     }
-  }
+  });
 
   const colleagues = displayEmployees.filter(e => {
     const empId = e._id || e.id;
@@ -81,12 +82,22 @@ export function ShiftSwapPage() {
     }
   };
 
+  const handleRespond = async (swapId, responseStatus) => {
+    try {
+      await respondToSwap(swapId, responseStatus);
+      fetchSwaps();
+    } catch (err) {
+      // Error handling
+    }
+  };
+
   const getShiftLabel = (shiftOrId) => {
     if (!shiftOrId) return 'Select a shift';
     
     let shift = shiftOrId;
     if (typeof shiftOrId === 'string' || typeof shiftOrId === 'number') {
-      shift = shifts.find(s => (s._id || s.id || '').toString() === shiftOrId.toString());
+      shift = shifts.find(s => (s._id || s.id || '').toString() === shiftOrId.toString()) ||
+              DEFAULT_SHIFTS.find(s => (s._id || s.id || '').toString() === shiftOrId.toString());
     }
     
     if (!shift) return 'Select a shift';
@@ -140,7 +151,7 @@ export function ShiftSwapPage() {
                       <div className="space-y-1.5">
                         <div className="flex items-center flex-wrap gap-2 sm:gap-4">
                           <span className="text-sm font-bold text-slate-900">
-                            {swap.requesterId === user?.id ? (
+                            {(swap.requesterId?._id || swap.requesterId || '').toString() === (user?.id || user?._id || '').toString() ? (
                               <span className="text-primary-600">Your Shift</span>
                             ) : getEmployeeName(swap.requesterId)} 
                           </span>
@@ -148,7 +159,7 @@ export function ShiftSwapPage() {
                             <ArrowRightLeft className="h-2.5 w-2.5 text-slate-400" />
                           </div>
                           <span className="text-sm font-bold text-slate-900">
-                            {swap.targetUserId === user?.id ? (
+                            {(swap.targetUserId?._id || swap.targetUserId || '').toString() === (user?.id || user?._id || '').toString() ? (
                               <span className="text-primary-600">Your Shift</span>
                             ) : getEmployeeName(swap.targetUserId)}
                           </span>
@@ -161,11 +172,37 @@ export function ShiftSwapPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-10">
-                      <div className="h-8 w-px bg-slate-100 hidden sm:block"></div>
-                      <Badge variant={swap.status === 'pending' ? 'warning' : 'success'} className="px-3 py-1 font-bold uppercase tracking-tight">
-                        {swap.status.replace('_', ' ')}
-                      </Badge>
+                    <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-4">
+                      {swap.status === 'pending' && (swap.targetUserId?._id || swap.targetUserId || '').toString() === (user?.id || user?._id || '').toString() ? (
+                        <div className="flex items-center gap-3">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleRespond(swap._id || swap.id, 'accepted')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-100 hover:shadow-emerald-200 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-emerald-600"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleRespond(swap._id || swap.id, 'rejected')}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
+                          >
+                            <X className="h-3.5 w-3.5" /> Reject
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="h-8 w-px bg-slate-100 hidden sm:block mr-6"></div>
+                          <Badge 
+                            variant={swap.status === 'pending' ? 'warning' : (swap.status === 'approved' || swap.status === 'manager_approved' ? 'success' : 'danger')} 
+                            className="px-3 py-1 font-bold uppercase tracking-tight"
+                          >
+                            {swap.status.replace('_', ' ')}
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
                 </Card>

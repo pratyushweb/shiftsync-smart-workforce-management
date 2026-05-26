@@ -13,9 +13,10 @@ export const useAuthStore = create((set) => ({
     try {
       const response = await api.post('/auth/login', { email, password });
       const { user, accessToken } = response.data.data;
+      const mappedUser = { ...user, name: user.fullName || user.name };
       
       localStorage.setItem('shiftsync_token', accessToken);
-      set({ user, token: accessToken, isAuthenticated: true, isLoading: false });
+      set({ user: mappedUser, token: accessToken, isAuthenticated: true, isLoading: false });
     } catch (err) {
       const message = err.response?.data?.message || 'Login failed';
       set({ error: message, isLoading: false });
@@ -58,13 +59,30 @@ export const useAuthStore = create((set) => ({
     const token = localStorage.getItem('shiftsync_token');
     if (!token) return;
 
+    set({ isLoading: true });
     try {
-      // In a real app we might have a /auth/me endpoint
-      // For now we'll assume the token is active if not expired
-      // or implement a simple validation call if needed.
+      const response = await api.get('/auth/me');
+      const user = response.data.data;
+      const mappedUser = { ...user, name: user.fullName || user.name };
+      set({ user: mappedUser, isAuthenticated: true, isLoading: false });
     } catch (err) {
       localStorage.removeItem('shiftsync_token');
-      set({ user: null, token: null, isAuthenticated: false });
+      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    }
+  },
+
+  updateProfile: async (profileData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.put('/auth/profile', profileData);
+      const user = response.data.data;
+      const mappedUser = { ...user, name: user.fullName || user.name };
+      set({ user: mappedUser, isLoading: false });
+      return mappedUser;
+    } catch (err) {
+      const message = err.response?.data?.message || 'Profile update failed';
+      set({ error: message, isLoading: false });
+      throw err;
     }
   }
 }));

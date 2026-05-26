@@ -36,7 +36,7 @@ export function EmployeesPage() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState('Server');
   const [password, setPassword] = useState('EmployeePassword123');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -56,7 +56,7 @@ export function EmployeesPage() {
       setSuccessMessage(`Employee ${fullName} successfully added!`);
       setFullName('');
       setEmail('');
-      setRole('');
+      setRole('Server');
       setPassword('EmployeePassword123');
       setTimeout(() => {
         setIsInviteModalOpen(false);
@@ -141,14 +141,18 @@ export function EmployeesPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <Input
-                label="Primary Role"
-                type="text"
-                required
-                placeholder="Server, Cook, Host, etc."
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              />
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 block">Primary Role</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200/80 p-4 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm bg-white"
+                >
+                  {['Server', 'Cook', 'Host', 'Cashier'].map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
               <Input
                 label="Password"
                 type="password"
@@ -181,13 +185,18 @@ export function EmployeesPage() {
                 value={editingEmployee.name}
                 onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
               />
-              <Input
-                label="Primary Role"
-                type="text"
-                required
-                value={editingEmployee.role}
-                onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
-              />
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 block">Primary Role</label>
+                <select
+                  value={editingEmployee.role}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-200/80 p-4 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all shadow-sm bg-white"
+                >
+                  {['Server', 'Cook', 'Host', 'Cashier'].map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex justify-end space-x-3 pt-4 border-t border-slate-50">
               <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>

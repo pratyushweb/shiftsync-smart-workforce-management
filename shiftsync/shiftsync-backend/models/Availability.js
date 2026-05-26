@@ -11,13 +11,23 @@ const availabilitySchema = new mongoose.Schema({
     enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
     required: true
   },
+  status: {
+    type: String,
+    enum: ['Available', 'Unavailable', 'Mornings', 'Afternoons'],
+    required: true,
+    default: 'Available'
+  },
   startTime: {
     type: String, // HH:MM format
-    required: true
+    default: '09:00'
   },
   endTime: {
     type: String, // HH:MM format
-    required: true
+    default: '17:00'
+  },
+  isCustom: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

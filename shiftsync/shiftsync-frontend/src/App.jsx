@@ -14,6 +14,7 @@ import { InviteSignupPage } from './pages/public/InviteSignupPage';
 
 // Manager Pages
 import { ManagerDashboardPage } from './pages/manager/ManagerDashboardPage';
+import { ShiftsPage } from './pages/manager/ShiftsPage';
 import { EmployeesPage } from './pages/manager/EmployeesPage';
 
 // Employee Pages
@@ -84,7 +85,7 @@ function App() {
           } />
           <Route path="shifts" element={
             <ProtectedRoute requiredRole="manager">
-              <ManagerDashboardPage />
+              <ShiftsPage />
             </ProtectedRoute>
           } />
 

@@ -196,7 +196,7 @@ export function ShiftSwapPage() {
                         <>
                           <div className="h-8 w-px bg-slate-100 hidden sm:block mr-6"></div>
                           <Badge 
-                            variant={swap.status === 'pending' ? 'warning' : (swap.status === 'approved' || swap.status === 'manager_approved' ? 'success' : 'danger')} 
+                            variant={swap.status === 'pending' ? 'warning' : (swap.status === 'approved' || swap.status === 'accepted' || swap.status === 'manager_approved' ? 'success' : 'danger')} 
                             className="px-3 py-1 font-bold uppercase tracking-tight"
                           >
                             {swap.status.replace('_', ' ')}

@@ -114,7 +114,7 @@ export const respondToSwap = async (req, res, next) => {
     if (!swap) return res.status(404).json({ success: false, message: 'Swap request not found' });
 
     if (response === 'accepted') {
-      swap.status = 'approved';
+      swap.status = 'accepted';
       const assignment = await ShiftAssignment.findById(swap.shiftAssignmentId);
       if (assignment) {
         assignment.userId = swap.targetUserId;
